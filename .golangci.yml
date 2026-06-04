@@ -1,0 +1,19 @@
+# golangci-lint v2 configuration. Mirrors the linters validated locally so CI
+# and `make lint` agree. See https://golangci-lint.run for the full reference.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # go vet
+    - ineffassign   # ineffectual assignments
+    - staticcheck   # static analysis
+    - unused        # unused code
+    - misspell      # common misspellings in comments
+
+formatters:
+  enable:
+    - gofmt
