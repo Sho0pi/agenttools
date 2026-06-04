@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/sho0pi/agenttools/internal/safehttp"
 	"github.com/sho0pi/agenttools/tool"
 )
 
@@ -184,11 +184,11 @@ func (e *extractor) assemble(cfg Config, urls []string, results []fetchResult) t
 }
 
 func (e *extractor) fetchOne(ctx context.Context, client *http.Client, cfg Config, raw string) (string, error) {
-	u, err := validateURL(raw)
+	u, err := safehttp.ValidateURL(raw)
 	if err != nil {
 		return "", err
 	}
-	if cfg.BlockPrivate && blockedLiteralIP(u) {
+	if cfg.BlockPrivate && safehttp.BlockedLiteralIP(u) {
 		return "", fmt.Errorf("blocked non-public address %s", u.Hostname())
 	}
 
@@ -270,36 +270,7 @@ func looksLikeHTML(s string) bool {
 }
 
 func newClient(cfg Config) *http.Client {
-	dialer := &net.Dialer{Timeout: cfg.Timeout, KeepAlive: 30 * time.Second}
-	if cfg.BlockPrivate {
-		dialer.Control = safeControl
-	}
-	tr := &http.Transport{
-		DialContext:           dialer.DialContext,
-		TLSHandshakeTimeout:   cfg.Timeout,
-		ResponseHeaderTimeout: cfg.Timeout,
-		MaxIdleConns:          10,
-		DisableKeepAlives:     true,
-	}
-	return &http.Client{
-		Timeout:   cfg.Timeout,
-		Transport: tr,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return fmt.Errorf("too many redirects")
-			}
-			// Re-validate every redirect target: scheme and credentials. The
-			// dialer Control hook still guards the actual connect IP.
-			u, err := validateURL(req.URL.String())
-			if err != nil {
-				return fmt.Errorf("blocked redirect to %s: %w", req.URL, err)
-			}
-			if cfg.BlockPrivate && blockedLiteralIP(u) {
-				return fmt.Errorf("blocked redirect to non-public address %s", u.Hostname())
-			}
-			return nil
-		},
-	}
+	return safehttp.Client(safehttp.Config{Timeout: cfg.Timeout, BlockPrivate: cfg.BlockPrivate})
 }
 
 func dedupeNonEmpty(in []string) []string {
