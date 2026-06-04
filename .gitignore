@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Claude Code local settings (personal, machine-specific)
+.claude/settings.local.json
+
+# Materialized skill content — regenerable from skills-lock.json (committed)
+.agents/
+.claude/skills/
