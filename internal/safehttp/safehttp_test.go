@@ -1,4 +1,4 @@
-package webfetch
+package safehttp
 
 import (
 	"net"
@@ -30,8 +30,8 @@ func TestIsBlockedIP(t *testing.T) {
 		if ip == nil {
 			t.Fatalf("bad test ip %q", c.ip)
 		}
-		if got := isBlockedIP(ip); got != c.blocked {
-			t.Errorf("isBlockedIP(%s) = %v, want %v", c.ip, got, c.blocked)
+		if got := IsBlockedIP(ip); got != c.blocked {
+			t.Errorf("IsBlockedIP(%s) = %v, want %v", c.ip, got, c.blocked)
 		}
 	}
 }
@@ -45,8 +45,8 @@ func TestValidateURL(t *testing.T) {
 		"http://",                      // no host
 	}
 	for _, u := range bad {
-		if _, err := validateURL(u); err == nil {
-			t.Errorf("validateURL(%q) = nil error, want rejection", u)
+		if _, err := ValidateURL(u); err == nil {
+			t.Errorf("ValidateURL(%q) = nil error, want rejection", u)
 		}
 	}
 
@@ -57,8 +57,8 @@ func TestValidateURL(t *testing.T) {
 		"http://127.0.0.1/admin", // valid url; IP blocking is gated separately
 	}
 	for _, u := range good {
-		if _, err := validateURL(u); err != nil {
-			t.Errorf("validateURL(%q) = %v, want ok", u, err)
+		if _, err := ValidateURL(u); err != nil {
+			t.Errorf("ValidateURL(%q) = %v, want ok", u, err)
 		}
 	}
 }
@@ -66,16 +66,16 @@ func TestValidateURL(t *testing.T) {
 func TestBlockedLiteralIP(t *testing.T) {
 	blocked := []string{"http://127.0.0.1/admin", "http://169.254.169.254/", "http://10.1.2.3/"}
 	for _, raw := range blocked {
-		u, err := validateURL(raw)
+		u, err := ValidateURL(raw)
 		if err != nil {
-			t.Fatalf("validateURL(%q): %v", raw, err)
+			t.Fatalf("ValidateURL(%q): %v", raw, err)
 		}
-		if !blockedLiteralIP(u) {
-			t.Errorf("blockedLiteralIP(%q) = false, want true", raw)
+		if !BlockedLiteralIP(u) {
+			t.Errorf("BlockedLiteralIP(%q) = false, want true", raw)
 		}
 	}
-	u, _ := validateURL("http://example.com")
-	if blockedLiteralIP(u) {
-		t.Error("blockedLiteralIP(example.com) = true, want false (hostname, not IP)")
+	u, _ := ValidateURL("http://example.com")
+	if BlockedLiteralIP(u) {
+		t.Error("BlockedLiteralIP(example.com) = true, want false (hostname, not IP)")
 	}
 }
