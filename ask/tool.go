@@ -17,10 +17,11 @@ type Args struct {
 	Urgency  string   `json:"urgency"`
 }
 
-// New returns the ask_user tool backed by asker, or an error if asker is nil.
-func New(asker Asker) (tool.Tool, error) {
-	if asker == nil {
-		return nil, fmt.Errorf("ask: Asker must not be nil")
+// New returns the ask_user tool. ask is the function that delivers questions to
+// the user and returns their answer; it must not be nil.
+func New(ask Ask) (tool.Tool, error) {
+	if ask == nil {
+		return nil, fmt.Errorf("ask: Ask must not be nil")
 	}
 	return tool.NewTypedTool(
 		"ask_user",
@@ -36,12 +37,12 @@ func New(asker Asker) (tool.Tool, error) {
 			"urgency":  {Type: "string", Description: "Question urgency.", Enum: []string{"low", "normal", "high"}},
 		}, "question"),
 		func(ctx context.Context, args Args) (tool.Result, error) {
-			return run(ctx, asker, args)
+			return run(ctx, ask, args)
 		},
 	), nil
 }
 
-func run(ctx context.Context, asker Asker, args Args) (tool.Result, error) {
+func run(ctx context.Context, ask Ask, args Args) (tool.Result, error) {
 	if strings.TrimSpace(args.Question) == "" {
 		return tool.Result{}, fmt.Errorf("question is required")
 	}
@@ -53,7 +54,7 @@ func run(ctx context.Context, asker Asker, args Args) (tool.Result, error) {
 		}
 	}
 
-	answer, err := asker.Ask(ctx, Question{
+	answer, err := ask(ctx, Question{
 		Prompt:  args.Question,
 		Context: args.Context,
 		Options: args.Options,

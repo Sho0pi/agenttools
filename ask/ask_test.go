@@ -9,19 +9,18 @@ import (
 	"github.com/sho0pi/agenttools/tool"
 )
 
-func TestNew_NilAsker(t *testing.T) {
+func TestNew_NilAsk(t *testing.T) {
 	if _, err := New(nil); err == nil {
-		t.Fatal("expected error for nil Asker")
+		t.Fatal("expected error for nil Ask")
 	}
 }
 
 func TestAskUser(t *testing.T) {
 	var gotQ Question
-	asker := AskerFunc(func(_ context.Context, q Question) (string, error) {
+	tr, err := New(Ask(func(_ context.Context, q Question) (string, error) {
 		gotQ = q
 		return "Postgres", nil
-	})
-	tr, err := New(asker)
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,12 +49,12 @@ func TestAskUser(t *testing.T) {
 	}
 }
 
-func TestAskUser_AskerError(t *testing.T) {
-	tr, _ := New(AskerFunc(func(_ context.Context, _ Question) (string, error) {
+func TestAskUser_Error(t *testing.T) {
+	tr, _ := New(Ask(func(_ context.Context, _ Question) (string, error) {
 		return "", errors.New("user unreachable")
 	}))
 	raw, _ := json.Marshal(Args{Question: "x?"})
 	if _, err := tr.Execute(context.Background(), raw); err == nil {
-		t.Fatal("asker error should propagate")
+		t.Fatal("ask error should propagate")
 	}
 }
