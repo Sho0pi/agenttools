@@ -37,3 +37,9 @@ go.work.sum
 # Materialized skill content — regenerable from skills-lock.json (committed)
 .agents/
 .claude/skills/
+
+# macOS
+.DS_Store
+
+# Local reference code from prior projects (not part of the build)
+_old/
