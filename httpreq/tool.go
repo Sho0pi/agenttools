@@ -91,12 +91,12 @@ func run(ctx context.Context, cfg Config, args Args) (tool.Result, error) {
 		if cfg.Auth == nil {
 			return tool.Result{}, fmt.Errorf("auth_profile %q requested but no auth provider is configured", profile)
 		}
-		if err := cfg.Auth.Apply(ctx, profile, req); err != nil {
+		if err := cfg.Auth(ctx, profile, req); err != nil {
 			return tool.Result{}, fmt.Errorf("apply auth profile %q: %w", profile, err)
 		}
 	}
 
-	resp, err := cfg.Doer.Do(req)
+	resp, err := cfg.Requester(req)
 	if err != nil {
 		return tool.Result{}, fmt.Errorf("http request: %w", err)
 	}

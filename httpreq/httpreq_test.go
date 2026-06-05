@@ -92,7 +92,7 @@ func TestHTTPRequest_AuthProfile(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	auth := AuthProfilesFunc(func(_ context.Context, profile string, req *http.Request) error {
+	auth := AuthProfile(func(_ context.Context, profile string, req *http.Request) error {
 		if profile == "demo" {
 			req.Header.Set("Authorization", "Bearer secret-token")
 		}
