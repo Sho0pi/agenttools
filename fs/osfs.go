@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -56,7 +57,10 @@ func NewOSFileSystem(cfg Config) (*OSFileSystem, error) {
 // Root returns the absolute workspace root.
 func (w *OSFileSystem) Root() string { return w.root }
 
-// ReadFile implements FileSystem.
+// ReadFile implements FileSystem. Files larger than maxBytes are returned
+// truncated rather than rejected — callers can use ReadArgs.MaxBytes or
+// StartLine/EndLine to further narrow the window. The OS-level cap exists to
+// bound memory use regardless of what arguments the model passes.
 func (w *OSFileSystem) ReadFile(_ context.Context, path string) ([]byte, error) {
 	resolved, err := w.resolve(path)
 	if err != nil {
@@ -65,7 +69,12 @@ func (w *OSFileSystem) ReadFile(_ context.Context, path string) ([]byte, error) 
 	if _, err := w.statRegular(resolved); err != nil {
 		return nil, err
 	}
-	return os.ReadFile(resolved)
+	f, err := os.Open(resolved)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	return io.ReadAll(io.LimitReader(f, w.maxBytes))
 }
 
 // WriteFile implements FileSystem.
@@ -248,7 +257,7 @@ func (w *OSFileSystem) within(p string) bool {
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-// statRegular enforces the size cap and rejects non-regular files.
+// statRegular rejects non-regular files (dirs, devices, sockets, etc.).
 func (w *OSFileSystem) statRegular(resolved string) (os.FileInfo, error) {
 	info, err := os.Stat(resolved)
 	if err != nil {
@@ -259,9 +268,6 @@ func (w *OSFileSystem) statRegular(resolved string) (os.FileInfo, error) {
 	}
 	if !info.Mode().IsRegular() {
 		return nil, errors.New("path is not a regular file")
-	}
-	if info.Size() > w.maxBytes {
-		return nil, fmt.Errorf("file too large: %d bytes (limit: %d bytes)", info.Size(), w.maxBytes)
 	}
 	return info, nil
 }

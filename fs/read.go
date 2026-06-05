@@ -33,7 +33,7 @@ func NewReadTool(fsys FileSystem) (tool.Tool, error) {
 			"path":                 {Type: "string", Description: "File path, relative to the workspace root."},
 			"start_line":           {Type: "integer", Description: "1-based first line to return (default 1)."},
 			"end_line":             {Type: "integer", Description: "1-based last line to return (default: end of file)."},
-			"max_bytes":            {Type: "integer", Description: "Cap on bytes read before slicing lines."},
+			"max_bytes":            {Type: "integer", Description: "Cap on output bytes after line slicing."},
 			"include_line_numbers": {Type: "boolean", Description: "Prefix each returned line with its number."},
 		}, "path"),
 		func(ctx context.Context, args ReadArgs) (tool.Result, error) {
@@ -46,9 +46,6 @@ func readFile(ctx context.Context, fsys FileSystem, args ReadArgs) (tool.Result,
 	data, err := fsys.ReadFile(ctx, args.Path)
 	if err != nil {
 		return tool.Result{}, err
-	}
-	if args.MaxBytes > 0 && len(data) > args.MaxBytes {
-		data = data[:args.MaxBytes]
 	}
 	if !utf8.Valid(data) {
 		return tool.Result{}, fmt.Errorf("file is not valid UTF-8 (binary?): %s", args.Path)
@@ -86,12 +83,21 @@ func readFile(ctx context.Context, fsys FileSystem, args ReadArgs) (tool.Result,
 		}
 	}
 
+	content := strings.TrimSuffix(sb.String(), "\n")
+	// MaxBytes caps the rendered output after line selection, not the raw file
+	// bytes — so start_line/end_line always takes priority over the byte budget.
+	truncated := end < total || start > 1
+	if args.MaxBytes > 0 && len(content) > args.MaxBytes {
+		content = content[:args.MaxBytes]
+		truncated = true
+	}
+
 	return tool.Result{
-		Content: strings.TrimSuffix(sb.String(), "\n"),
+		Content: content,
 		Data: map[string]any{
 			"path": args.Path, "total_lines": total,
 			"start_line": start, "end_line": end,
-			"truncated": end < total || start > 1,
+			"truncated": truncated,
 		},
 	}, nil
 }

@@ -57,7 +57,7 @@ func must[T any](v T, err error) T {
 func TestConstructors_NilFS(t *testing.T) {
 	ctors := map[string]func(FileSystem) (tool.Tool, error){
 		"read": NewReadTool, "write": NewWriteTool, "edit": NewEditTool,
-		"list": NewListTool, "grep": NewGrepTool,
+		"list": NewListTool, "grep": NewGrepTool, "glob": NewGlobTool,
 	}
 	for name, ctor := range ctors {
 		if _, err := ctor(nil); err == nil {
@@ -107,8 +107,13 @@ func TestOSFileSystem_SizeCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ws.ReadFile(context.Background(), "big.bin"); err == nil {
-		t.Fatal("reading a file over the size cap should fail")
+	// LimitReader truncates gracefully; the caller decides what to do with partial data.
+	data, err := ws.ReadFile(context.Background(), "big.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) != 1024 {
+		t.Fatalf("size cap: got %d bytes, want 1024", len(data))
 	}
 }
 
@@ -298,5 +303,48 @@ func TestGrepTool(t *testing.T) {
 	}
 	if !strings.Contains(res.Content, "alpha") || !strings.Contains(res.Content, "gamma") {
 		t.Fatalf("context lines missing:\n%s", res.Content)
+	}
+}
+
+func TestGlobTool(t *testing.T) {
+	tr := must(NewGlobTool(newWS(t)))
+
+	// match all Go files
+	res, err := call(t, tr, GlobArgs{Pattern: "**/*.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Content, "src/main.go") || !strings.Contains(res.Content, "src/util.go") {
+		t.Fatalf("glob **/*.go wrong:\n%s", res.Content)
+	}
+	if res.Data["count"].(int) < 2 {
+		t.Fatalf("count = %v, want >=2", res.Data["count"])
+	}
+
+	// no matches
+	res, err = call(t, tr, GlobArgs{Pattern: "**/*.xyz"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Content, "No files match") {
+		t.Fatalf("no-match glob wrong:\n%s", res.Content)
+	}
+
+	// root restriction
+	res, err = call(t, tr, GlobArgs{Pattern: "*.go", Root: "src"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Content, "main.go") {
+		t.Fatalf("root restriction wrong:\n%s", res.Content)
+	}
+
+	// max_results cap
+	res, err = call(t, tr, GlobArgs{Pattern: "**/*", MaxResults: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Data["truncated"] != true {
+		t.Fatal("max_results=1 should truncate")
 	}
 }
