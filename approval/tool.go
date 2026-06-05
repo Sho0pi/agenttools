@@ -19,11 +19,12 @@ type Args struct {
 	TimeoutSec        int            `json:"timeout_sec"`
 }
 
-// New returns the approval_request tool backed by approver, or an error if
-// approver is nil.
-func New(approver Approver) (tool.Tool, error) {
-	if approver == nil {
-		return nil, fmt.Errorf("approval: Approver must not be nil")
+// New returns the approval_request tool. approve is the function that routes
+// requests to a human or policy; it must not be nil. Use DenyAll as a safe
+// default when no channel is configured.
+func New(approve Approve) (tool.Tool, error) {
+	if approve == nil {
+		return nil, fmt.Errorf("approval: Approve must not be nil")
 	}
 	return tool.NewTypedTool(
 		"approval_request",
@@ -37,15 +38,15 @@ func New(approver Approver) (tool.Tool, error) {
 			"affected_resources": {Type: "array", Description: "Resources the action touches.", Items: &tool.Property{Type: "string"}},
 			"proposed_command":   {Type: "string", Description: "Exact command to be run, if any."},
 			"proposed_payload":   {Type: "object", Description: "Structured payload of the action, if any."},
-			"timeout_sec":        {Type: "integer", Description: "How long to wait for a decision (Approver default if unset)."},
+			"timeout_sec":        {Type: "integer", Description: "How long to wait for a decision (provider default if unset)."},
 		}, "action_summary", "risk_level"),
 		func(ctx context.Context, args Args) (tool.Result, error) {
-			return run(ctx, approver, args)
+			return run(ctx, approve, args)
 		},
 	), nil
 }
 
-func run(ctx context.Context, approver Approver, args Args) (tool.Result, error) {
+func run(ctx context.Context, approve Approve, args Args) (tool.Result, error) {
 	if strings.TrimSpace(args.ActionSummary) == "" {
 		return tool.Result{}, fmt.Errorf("action_summary is required")
 	}
@@ -55,7 +56,7 @@ func run(ctx context.Context, approver Approver, args Args) (tool.Result, error)
 		return tool.Result{}, fmt.Errorf("risk_level must be one of low, medium, high (got %q)", args.RiskLevel)
 	}
 
-	decision, err := approver.RequestApproval(ctx, ApprovalRequest{
+	decision, err := approve(ctx, ApprovalRequest{
 		Summary:           args.ActionSummary,
 		RiskLevel:         args.RiskLevel,
 		AffectedResources: args.AffectedResources,

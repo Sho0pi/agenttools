@@ -10,19 +10,18 @@ import (
 	"github.com/sho0pi/agenttools/tool"
 )
 
-func TestNew_NilApprover(t *testing.T) {
+func TestNew_NilApprove(t *testing.T) {
 	if _, err := New(nil); err == nil {
-		t.Fatal("expected error for nil Approver")
+		t.Fatal("expected error for nil Approve")
 	}
 }
 
 func TestApprovalRequest(t *testing.T) {
 	var gotReq ApprovalRequest
-	approver := ApproverFunc(func(_ context.Context, req ApprovalRequest) (Decision, error) {
+	tr, err := New(Approve(func(_ context.Context, req ApprovalRequest) (Decision, error) {
 		gotReq = req
 		return Decision{Approved: true, By: "alice"}, nil
-	})
-	tr, err := New(approver)
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +43,7 @@ func TestApprovalRequest(t *testing.T) {
 }
 
 func TestApprovalRequest_Denied(t *testing.T) {
-	tr, _ := New(DenyAll{})
+	tr, _ := New(DenyAll)
 	raw, _ := json.Marshal(Args{ActionSummary: "delete prod", RiskLevel: "high"})
 	res, err := tr.Execute(context.Background(), raw)
 	if err != nil {
@@ -56,17 +55,17 @@ func TestApprovalRequest_Denied(t *testing.T) {
 }
 
 func TestApprovalRequest_FailsClosedOnError(t *testing.T) {
-	tr, _ := New(ApproverFunc(func(_ context.Context, _ ApprovalRequest) (Decision, error) {
+	tr, _ := New(Approve(func(_ context.Context, _ ApprovalRequest) (Decision, error) {
 		return Decision{}, errors.New("channel down")
 	}))
 	raw, _ := json.Marshal(Args{ActionSummary: "x", RiskLevel: "medium"})
 	if _, err := tr.Execute(context.Background(), raw); err == nil {
-		t.Fatal("approver error must surface as an error (fail closed), not silent approval")
+		t.Fatal("approve error must surface as an error (fail closed), not silent approval")
 	}
 }
 
 func TestApprovalRequest_Validation(t *testing.T) {
-	tr, _ := New(DenyAll{})
+	tr, _ := New(DenyAll)
 	do := func(args Args) error {
 		raw, _ := json.Marshal(args)
 		_, err := tr.Execute(context.Background(), raw)
