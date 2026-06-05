@@ -22,9 +22,10 @@ const (
 	defaultMaxBytes = 5 << 20 // 5 MiB response cap
 )
 
-// Requester performs an HTTP request and returns the response. Wire in
-// client.Do to use a custom *http.Client; nil builds an SSRF-guarded default.
-type Requester func(req *http.Request) (*http.Response, error)
+// Do performs an HTTP request and returns the response, matching the
+// *http.Client.Do convention. Wire in client.Do to use a custom client;
+// nil builds an SSRF-guarded default.
+type Do func(req *http.Request) (*http.Response, error)
 
 // AuthProfile resolves a named credential (e.g. "github") and applies it to
 // req server-side without exposing the secret to the model. Pull credentials
@@ -33,14 +34,14 @@ type AuthProfile func(ctx context.Context, name string, req *http.Request) error
 
 // Config configures the http_request tool.
 type Config struct {
-	// Requester performs requests. If nil, an SSRF-guarded client is built
+	// Do performs requests. If nil, an SSRF-guarded client is built
 	// from Timeout and BlockPrivate.
-	Requester Requester
+	Do Do
 	// Auth resolves named auth profiles. If nil, auth_profile is rejected.
 	Auth AuthProfile
-	// Timeout bounds each request when Requester is nil (default 30s).
+	// Timeout bounds each request when Do is nil (default 30s).
 	Timeout time.Duration
-	// BlockPrivate enables the SSRF guard when Requester is nil (SHOULD be true).
+	// BlockPrivate enables the SSRF guard when Do is nil (SHOULD be true).
 	BlockPrivate bool
 	// MaxBytes caps the response body read into the result (default 5 MiB).
 	MaxBytes int
@@ -53,9 +54,9 @@ func (c Config) withDefaults() Config {
 	if c.MaxBytes <= 0 {
 		c.MaxBytes = defaultMaxBytes
 	}
-	if c.Requester == nil {
+	if c.Do == nil {
 		client := safehttp.Client(safehttp.Config{Timeout: c.Timeout, BlockPrivate: c.BlockPrivate})
-		c.Requester = client.Do
+		c.Do = client.Do
 	}
 	return c
 }

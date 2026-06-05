@@ -96,7 +96,7 @@ func run(ctx context.Context, cfg Config, args Args) (tool.Result, error) {
 		}
 	}
 
-	resp, err := cfg.Requester(req)
+	resp, err := cfg.Do(req)
 	if err != nil {
 		return tool.Result{}, fmt.Errorf("http request: %w", err)
 	}
