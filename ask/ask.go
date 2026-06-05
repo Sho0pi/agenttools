@@ -11,7 +11,6 @@ type Question struct {
 	Context string   // optional background to help the user answer
 	Options []string // optional suggested choices
 	Default string   // value to assume if the user does not answer
-	Urgency string   // "low" | "normal" | "high"
 }
 
 // Ask delivers a Question to the user and returns their answer. Implementations

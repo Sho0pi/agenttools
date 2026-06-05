@@ -44,9 +44,6 @@ func TestAskUser(t *testing.T) {
 	if _, err := do(Args{Question: "  "}); err == nil {
 		t.Fatal("blank question should error")
 	}
-	if _, err := do(Args{Question: "x", Urgency: "bogus"}); err == nil {
-		t.Fatal("invalid urgency should error")
-	}
 }
 
 func TestAskUser_Error(t *testing.T) {
